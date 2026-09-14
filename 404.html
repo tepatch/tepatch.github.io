@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Assisto</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+
+<!--
+  GitHub Pages serves this file for any address that does not exist, so it catches
+  every dead link rather than only the one path we thought to fix: old bookmarks,
+  mistyped paths, and whatever else was shared before the game moved to /assisto/.
+
+  Those links are the game's growth, and a challenge link in particular is meant to
+  outlive the day it was sent — the whole run is encoded in the query string. So the
+  query string is what matters here: forwarding to /assisto/ without it would turn an
+  invitation to a specific match into a cold open of the menu.
+
+  It forwards with the query string intact, which is the part that matters: a
+  challenge link carries an entire match in it, and arriving without it turns an
+  invitation into a cold open of the menu.
+
+  The status code is still 404. That is correct — the address really is gone — and
+  browsers follow the redirect regardless.
+-->
+<script>
+  // location.replace rather than assignment: the dead address never enters history,
+  // so Back does not bounce the player straight into it again.
+  (function(){
+    try{
+      var to = '/assisto/' + (location.search || '') + (location.hash || '');
+      location.replace(to);
+    }catch(e){
+      location.href = '/assisto/';
+    }
+  })();
+</script>
+
+<!--
+  With scripting off, a meta refresh still gets them to the game. It cannot carry the
+  query string, so a challenge link degrades to the menu rather than to nothing — and
+  the link below keeps the full address for anyone who wants to copy it.
+-->
+<noscript><meta http-equiv="refresh" content="0; url=/assisto/"></noscript>
+
+<style>
+  html,body{
+    height:100%; margin:0; display:grid; place-items:center;
+    background:#0B2B18; color:#EFEDE2;
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    text-align:center; padding:6vmin;
+  }
+  a{ color:#F2A93B; }
+  p{ max-width:34ch; line-height:1.5; }
+</style>
+</head>
+<body>
+  <p>That address has moved.<br><a href="/assisto/">Open the game</a></p>
+</body>
+</html>
