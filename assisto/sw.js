@@ -12,7 +12,7 @@
 // CACHE is stamped per deployment. Your build script should restamp the string below
 // the same way it restamps BUILD in the HTML — a byte-different sw.js is ALSO what
 // makes the browser consider it a new worker at all.
-const CACHE = 'assisto-v24-20260924-1745';
+const CACHE = 'assisto-2026-09-24-1930';
 const SHELL = './';
 
 self.addEventListener('install', e => {
