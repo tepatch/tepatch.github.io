@@ -1,94 +1,76 @@
-// Assisto's service worker.
+// Assisto service worker — REFERENCE. Reconcile with your deployed sw.js: the page
+// already speaks this worker's protocol (it posts 'refresh' before an update and
+// registers with updateViaCache 'none'), but if your real worker precaches more than
+// the shell, carry those paths over.
 //
-// Two jobs, and the second matters more than the first.
+// The strategy in one line: THE GAME IS FETCHED FROM THE NETWORK FIRST and the cache
+// is the fallback, not the source. An online launch therefore always plays the build
+// on the server — "latest all the time" — and an offline launch still opens the last
+// build that worked. Static assets (icons, manifest) are cache-first; they change
+// rarely and never decide gameplay.
 //
-// It makes the game playable with no connection, which is most of what an installed
-// icon promises: a tap opens a pitch, on a train, straight away.
-//
-// And it must never hand back yesterday's build. A cached game is a game frozen at the
-// version it was cached on, and this one checks its own build against the opponent's
-// before an online match and against the gameplay tag before ranking a run — a stale
-// copy does not misbehave quietly, it refuses to play. So the page itself is fetched
-// from the network first and only falls back to the cache; everything else, which is
-// content-addressed by its own name, is served from the cache and refreshed behind.
-const VERSION = 'assisto-v1';
-const SHELL = [
-  './',
-  './index.html',
-  './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/maskable-192.png',
-  './icons/maskable-512.png',
-  './icons/apple-touch-icon.png',
-];
+// CACHE is stamped per deployment. Your build script should restamp the string below
+// the same way it restamps BUILD in the HTML — a byte-different sw.js is ALSO what
+// makes the browser consider it a new worker at all.
+const CACHE = 'assisto-v21';
+const SHELL = './';
 
 self.addEventListener('install', e => {
-  // Ready on the first visit, so an install that happens straight after a first match
-  // already has something to open.
-  e.waitUntil((async () => {
-    const cache = await caches.open(VERSION);
-    await Promise.allSettled(SHELL.map(u => cache.add(u)));
-    await self.skipWaiting();
-  })());
+  // Take over as soon as installed. Waiting politely is for apps with in-flight
+  // server sessions; this game keeps its state in localStorage and its matches in
+  // Firebase, so an old worker has nothing a new one must not interrupt — and
+  // without this, a reload keeps the OLD worker in charge until every window closes,
+  // which on an installed app can be days.
+  self.skipWaiting();
+  e.waitUntil(caches.open(CACHE).then(c => c.add(SHELL)).catch(() => {}));
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    for(const key of await caches.keys()) if(key !== VERSION) await caches.delete(key);
+    for(const k of await caches.keys()) if(k !== CACHE) await caches.delete(k);
     await self.clients.claim();
   })());
+});
+
+// The page sends 'refresh' when the player applies an update: drop everything, so
+// the reload that follows cannot be answered from a stale cache.
+self.addEventListener('message', e => {
+  if(e.data === 'refresh')
+    e.waitUntil(caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))));
 });
 
 self.addEventListener('fetch', e => {
   const req = e.request;
   if(req.method !== 'GET') return;
-
   const url = new URL(req.url);
+  if(url.origin !== location.origin) return;   // Firebase and CDNs manage themselves
 
-  // Anything that is not ours — the database, the Firebase SDK — is left entirely
-  // alone. Caching a socket or an auth call would be worse than useless.
-  if(url.origin !== self.location.origin) return;
-
-  const isPage = req.mode === 'navigate' ||
-    (req.headers.get('accept') || '').includes('text/html');
-
-  if(isPage){
-    // network first: a build one version old refuses to play against a current one,
-    // so a stale page is a broken game rather than an old one
+  // Navigations: network first, cache as the offline fallback. The network copy
+  // refreshes the fallback on every successful launch.
+  if(req.mode === 'navigate'){
     e.respondWith((async () => {
       try{
-        const fresh = await fetch(req);
-        const cache = await caches.open(VERSION);
-        cache.put('./index.html', fresh.clone());
-        return fresh;
+        const net = await fetch(req);
+        const c = await caches.open(CACHE);
+        c.put(SHELL, net.clone()).catch(() => {});
+        return net;
       }catch(err){
-        const cache = await caches.open(VERSION);
-        return (await cache.match(req)) ||
-               (await cache.match('./index.html')) ||
-               (await cache.match('./')) ||
-               new Response('Assisto needs a connection the first time.',
-                 { status: 503, headers: { 'Content-Type': 'text/plain' } });
+        const hit = await caches.match(SHELL);
+        return hit || Response.error();
       }
     })());
     return;
   }
 
-  // everything else: from the cache, and refreshed behind for next time
+  // Everything else same-origin (icons, manifest): cache first, filled on first use.
   e.respondWith((async () => {
-    const cache = await caches.open(VERSION);
-    const hit = await cache.match(req);
-    const net = fetch(req).then(res => {
-      if(res && res.ok) cache.put(req, res.clone());
-      return res;
-    }).catch(() => null);
-    return hit || (await net) || new Response('', { status: 504 });
+    const hit = await caches.match(req);
+    if(hit) return hit;
+    const net = await fetch(req);
+    if(net && net.ok){
+      const c = await caches.open(CACHE);
+      c.put(req, net.clone()).catch(() => {});
+    }
+    return net;
   })());
-});
-
-// The page asks for this when its own build stamp does not match what was cached, so
-// a player is never stuck on an old copy with no way to say so.
-self.addEventListener('message', e => {
-  if(e.data === 'refresh')
-    e.waitUntil(caches.delete(VERSION).then(() => self.skipWaiting()));
 });
