@@ -11,3 +11,7 @@
 
 /* Keep support links readable and allow the additional account link to wrap. */
 .game-links{flex-wrap:wrap;gap:12px 20px;font-size:0.875rem}footer div{flex-wrap:wrap;row-gap:12px}footer{gap:20px}footer a{font-size:0.875rem}.game-details p{font-size:1rem}.game-details .former-name{font-size:0.875rem}
+
+
+/* Assisto keeps its own turf and amber palette. */
+.game + .game{margin-top:28px}.assisto-visual{background-color:#0B2B18;background-image:radial-gradient(ellipse at 50% 20%,#1B573388,transparent 70%),radial-gradient(#efede214 1px,transparent 1px);color:#EFEDE2}.assisto-visual>span{color:#c4d0bf}.assisto-visual p{color:#F2A93B}.assisto .pill .dot{background:#bc7915}.assisto .assisto-tagline{font-weight:600;color:#52664b;margin-top:-10px}.assisto .official-icon{box-shadow:0 20px 45px #00000044}.assisto .game-details p{max-width:380px}
